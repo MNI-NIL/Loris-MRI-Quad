@@ -188,20 +188,16 @@ sub determineSubjectID {
 	    exit 2;
         }
     }
-    print "HERE ";
-    print "PN before IF ELSE is: $tarchiveInfo->{'PatientName'}";
+    
     # Check if identifier is Patient Name or Patient ID
     if ($tarchiveInfo->{'PatientName'} =~ /$Settings::regex_pattern/i){
       $identifier = $tarchiveInfo->{'PatientName'};
-      print "Identifier in first If is: $identifier";
-      print "PN is: $tarchiveInfo->{'PatientName'}";
-      print "Regex pattern: $Settings::regex_pattern";
     }
-    elsif ($tarchiveInfo->{'PatientID'} =~ /$Settings::regex_pattern/i) {
+    elsif ($tarchiveInfo->{'PatientID'} =~ /$Settings::regex_pattern/i){
       $identifier = $tarchiveInfo->{'PatientID'};
-      print "Identifier in the Else is: $identifier";
-      print "PID is: $tarchiveInfo->{'PatientID'}";
-      print "Regex pattern: $Settings::regex_pattern";
+    }
+;
+print "Regex pattern: $Settings::regex_pattern";
     }
     my $subjectIDsref = Settings::getSubjectIDs(
                             $identifier,
@@ -274,10 +270,10 @@ sub determinePSC {
     my $indentifier = undef;
     $to_log = 1 unless defined $to_log;
 
-    if ($tarchiveInfo->{'PatientName'} =~ /$Settings::regex_pattern/i){
+    if ($tarchiveInfo->{'PatientName'} = $Settings::regex_pattern){
       $identifier = $tarchiveInfo->{'PatientName'};
     }
-    elsif ($tarchiveInfo->{'PatientID'} =~ /$Settings::regex_pattern/i){
+    else {
       $identifier = $tarchiveInfo->{'PatientID'};
     }
     my ($center_name, $centerID) =

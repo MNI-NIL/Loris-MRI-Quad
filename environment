@@ -1,7 +1,8 @@
-export PATH=%MINC_TOOLKIT_DIR%/bin:/data/%PROJECT%/bin/mri:/data/%PROJECT%/bin/mri/uploadNeuroDB:/data/%PROJECT%/bin/mri/dicom-archive:$PATH
-export PERL5LIB=/data/%PROJECT%/bin/mri/uploadNeuroDB:$PERL5LIB
-export TMPDIR=/tmp
-export LORIS_CONFIG=/data/%PROJECT%/bin/mri/dicom-archive
+export PATH=/opt/minc/bin:/data/quad/bin/mri:/data/quad/bin/mri/uploadNeuroDB:/data/quad/bin/mri/dicom-archive:$PATH
 
-source %MINC_TOOLKIT_DIR%/minc-toolkit-config.sh
+export PERL5LIB=/data/quad/bin/mri/uploadNeuroDB:/data/quad/bin/mri/:$PERL5LIB
+export TMPDIR=/tmp
+export LORIS_CONFIG=/data/quad/bin/mri/dicom-archive
+
+source /opt/minc/minc-toolkit-config.sh
 

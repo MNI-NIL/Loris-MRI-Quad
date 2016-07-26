@@ -50,22 +50,32 @@ $VERSION = 0.2;
 @EXPORT = qw();
 @EXPORT_OK = qw(identify_scan in_range get_headers get_info get_ids get_objective identify_scan_db scan_type_text_to_id scan_type_id_to_text register_db get_header_hash get_scanner_id get_psc compute_hash is_unique_hash make_pics select_volume);
 
+############################################################
+############### Create a settings package ##################
+############################################################
+my $profile = "prod";
+{
+ package Settings;
+ do "$ENV{LORIS_CONFIG}/.loris_mri/$profile";
+}
+
+
 =pod
-B<getSubjectIDs( C<$patientName>, C<$scannerID>, C<$dbhr> )>
+B<getSubjectIDs( C<$identifier>, C<$scannerID>, C<$dbhr> )>
 Determines the cand id and visit label for the subject based on patient name and (for calibration data) scannerid.
 Returns: a reference to a hash containing elements including 'CandID', 'visitLabel' and 'visitNo', or, in the case of failure, undef
 =cut
 sub getSubjectIDs {
-    my ($patientName, $scannerID, $dbhr) = @_;
+    my ($identifier, $scannerID, $dbhr) = @_;
     my %subjectID;
 # calibration data (PHANTOM_site_date | LIVING_PHANTOM_site_date | *test*)
-    if ($patientName =~ /PHA/i or $patientName =~ /TEST/i) {
+    if ($identifier =~ /PHA/i or $identifier =~ /TEST/i) {
 	$subjectID{'CandID'} = my_trim(getScannerCandID($scannerID, $dbhr));
-	$subjectID{'visitLabel'} = my_trim($patientName);
+	$subjectID{'visitLabel'} = my_trim($identifier);
 # subject data       	
 # old versions of this
 # qnts /([A-Z-]{3,4}\s+\d+)_(\d+)_([^_ ]+)/) or nihpd =~ /(\w{3}\d+)_(\d+)_([^_ ]+)/)
-    } elsif ($patientName =~ /([^_]+)_(\d+)_([^_ ]+)/) {
+    } elsif ($identifier =~ /$regex_pattern/i) {
 	$subjectID{'PSCID'} = my_trim($1);
 	$subjectID{'CandID'} = my_trim($2);
 	$subjectID{'visitLabel'} = my_trim($3);
@@ -966,7 +976,7 @@ sub createNewCandID {
 
 =pod
 
-B<getPSC( C<$patientName>, C<$dbhr> )>
+B<getPSC( C<$identifier>, C<$dbhr> )>
 
 Look for the site alias in whatever field (usually patient name or patient_id) is provided 
 and return the MRI alias and CenterID
@@ -976,14 +986,14 @@ Returns: two element array: first is UNKN or the MRI alias of the PSC, second is
 =cut
 
 sub getPSC {
-    my ($patientName, $dbhr) = @_;
+    my ($identifier, $dbhr) = @_;
     my $query = "SELECT CenterID, Alias, MRI_alias FROM psc WHERE mri_alias<>''";
     my $sth = $${dbhr}->prepare($query);
     $sth->execute;
 
     while(my $row = $sth->fetchrow_hashref) {
         return ($row->{'MRI_alias'}, $row->{'CenterID'})
-	    if ($patientName =~ /$row->{'Alias'}/i) || ($patientName =~ /$row->{'MRI_alias'}/i);
+	    if ($identifier =~ /$row->{'Alias'}/i) || ($identifier =~ /$row->{'MRI_alias'}/i);
     }
 
     ###########################################################################	
@@ -991,7 +1001,7 @@ sub getPSC {
     ###########################################################################
 
     #extract the PSCID from $patientName
-    $subjectIDsref = getSubjectIDs($patientName,null,$dbhr);
+    $subjectIDsref = &Settings::getSubjectIDs($identifier,null,$dbhr);
     my $PSCID = $subjectIDsref->{'PSCID'};
     if ($PSCID) {
     ##Get the CenterID using PSCID
