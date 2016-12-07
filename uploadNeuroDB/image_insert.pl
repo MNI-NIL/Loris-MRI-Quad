@@ -23,7 +23,13 @@ use NeuroDB::DBI;
 use NeuroDB::Notify;
 use NeuroDB::MRIProcessingUtility;
 
-my $file_source;
+my $profile = undef;
+my $verbose    = 0;
+my $file_name;
+my $file_extension;
+my $ext;
+my $InsertedByUserID = undef;
+my $sessionID = undef;
 
 ################################################################
 #### These settings are in a config file (profile) #############
@@ -49,59 +55,64 @@ if ($profile && !@Settings::db) {
 }
 
 if (!$profile) {
-    print $Usage;
     print "\n\tERROR: You must specify an existing profile.\n\n";
     exit 33;
 }
 
-if(scalar(@ARGV) < 2) {
-    print "\nError: Missing source file"
+if(scalar(@ARGV) != 1) {
+    print "\nError: Missing source file\n\n";
     exit 1;
 }
 
-# We get the name of the file in the path provided and its extension
+# We get the name of the file in the path provided 
 $file_name = basename(abs_path($ARGV[0]));
-my ($file_extension) = $file_name =~ /((\.[^.\s]+)+)$/;
 
-################################################################
-# Where the pics should go #####################################
-################################################################
-my $pic_dir = $Settings::data_dir . '/pic';
+# We get the extension of the file
+($file_extension) = $file_name =~ /((\.[^.\s]+)+)$/;
+$ext = substr $file_extension, 1;
+
+# We get the user that is performing the upload
+$InsertedByUserID = `whoami`;
 
 ################################################################
 ############### Establish database connection ##################
 ################################################################
+
 my $dbh = &NeuroDB::DBI::connect_to_db(@Settings::db);
 
+
+################################################################
+############## We find the SessionID ###########################
+################################################################
+
+# TODO
+#my $sth = $${dbhr}->prepare("SELECT CandID, Visit_label FROM session WHERE ID=".$file->getFileDatum('SessionID'));
+#   $sth->execute();
+#    my $rowhr = $sth->fetchrow_hashref();
 
 ################################################################
 ############### Create Insert Query ############################
 ################################################################
 
+# TODO
 # retrieve the file's data
-my $fileData = $file->getFileData();
+#my $fileData = $file->getFileData();
 
+# TODO
 # make sure this file isn't registered
-if(defined($fileData->{'FileID'}) && $fileData->{'FileID'} > 0) {
-   return 0;
-}
-
-# build the insert query
-my $query = "INSERT INTO files (File, FileType, InsertedByUserID, InsertTime) VALUES (" ;
-            . $file_name . ", " . $file_extension . ", " . "user" . UNIX_TIMESTAMP() . ")" ;
-
-#foreach my $key ('File', 'FileType', 'InsertedByUserID') {
-#    # add the key=value pair to the query
-#    $query .= "$key=".$dbh->quote($${fileData{$key}}).", ";
+#if(defined($fileData->{'FileID'}) && $fileData->{'FileID'} > 0) {
+#   return 0;
 #}
 
-#$query .= "InsertTime=UNIX_TIMESTAMP()";
+# build the insert query
+my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime) VALUES (?,?,?,?,?)"); 
+     
+my @results = ($file_name,"",$ext,$InsertedByUserID,time);
 
-print($query);
-# run the query
-#$dbh->do($query);
+$query->execute(@results);
 
-#my $fileID = $dbh->{'mysql_insertid'};
-#$file->setFileData('FileID', $fileID);
+# for debugging
+print "$query\n\n";
 
-exit 0;
+
+exit;
