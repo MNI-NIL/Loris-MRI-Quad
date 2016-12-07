@@ -23,13 +23,18 @@ use NeuroDB::DBI;
 use NeuroDB::Notify;
 use NeuroDB::MRIProcessingUtility;
 
+my $file_source;
+
 ################################################################
 #### These settings are in a config file (profile) #############
 ################################################################
 my @opt_table = (
                  ["-verbose", "boolean", 1, \$verbose, "Be verbose."],
+                 ["-profile","string",1, \$profile, "Specify the name of the config file which resides in .loris_mri in the current directory."]
                 );
 
+
+GetOptions(\@opt_table, \@ARGV) ||  exit 1;
 
 ################################################################
 ################ checking for profile settings #################
@@ -48,6 +53,15 @@ if (!$profile) {
     print "\n\tERROR: You must specify an existing profile.\n\n";
     exit 33;
 }
+
+if(scalar(@ARGV) < 2) {
+    print "\nError: Missing source file"
+    exit 1;
+}
+
+# We get the name of the file in the path provided and its extension
+$file_name = basename(abs_path($ARGV[0]));
+my ($file_extension) = $file_name =~ /((\.[^.\s]+)+)$/;
 
 ################################################################
 # Where the pics should go #####################################
@@ -73,17 +87,19 @@ if(defined($fileData->{'FileID'}) && $fileData->{'FileID'} > 0) {
 }
 
 # build the insert query
-my $query = "INSERT INTO files SET ";
+my $query = "INSERT INTO files (File, FileType, InsertedByUserID, InsertTime) VALUES (" ;
+            . $file_name . ", " . $file_extension . ", " . "user" . UNIX_TIMESTAMP() . ")" ;
 
-foreach my $key ('File', 'FileType', 'InsertedByUserID') {
-    # add the key=value pair to the query
-    $query .= "$key=".$dbh->quote($${fileData{$key}}).", ";
-}
+#foreach my $key ('File', 'FileType', 'InsertedByUserID') {
+#    # add the key=value pair to the query
+#    $query .= "$key=".$dbh->quote($${fileData{$key}}).", ";
+#}
 
-$query .= "InsertTime=UNIX_TIMESTAMP()";
+#$query .= "InsertTime=UNIX_TIMESTAMP()";
 
+print($query);
 # run the query
-$dbh->do($query);
+#$dbh->do($query);
 
 #my $fileID = $dbh->{'mysql_insertid'};
 #$file->setFileData('FileID', $fileID);
