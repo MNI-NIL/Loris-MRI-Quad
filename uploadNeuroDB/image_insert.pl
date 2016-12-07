@@ -22,7 +22,6 @@ use NeuroDB::MRI;
 use NeuroDB::DBI;
 use NeuroDB::Notify;
 use NeuroDB::MRIProcessingUtility;
-my $verbose = 0;                  # default, overwritten if scripts are run with -verbose
 
 ################################################################
 #### These settings are in a config file (profile) #############
@@ -31,32 +30,34 @@ my @opt_table = (
                  ["-verbose", "boolean", 1, \$verbose, "Be verbose."],
                 );
 
+
 ################################################################
-########### Create the Specific Log File #######################
+################ checking for profile settings #################
 ################################################################
-my $data_dir = $Settings::data_dir;
-$no_nii      = $Settings::no_nii if defined $Settings::no_nii;
-my $jiv_dir  = $data_dir.'/jiv';
-my $TmpDir   = tempdir($template, TMPDIR => 1, CLEANUP => 1 );
-my @temp     = split(/\//, $TmpDir);
-my $templog  = $temp[$#temp];
-my $LogDir   = "$data_dir/logs";
-my $tarchiveLibraryDir = $Settings::tarchiveLibraryDir;
-$tarchiveLibraryDir    =~ s/\/$//g;
-if (!-d $LogDir) {
-    mkdir($LogDir, 0770);
+if (-f "$ENV{LORIS_CONFIG}/.loris_mri/$profile") {
+	{ package Settings; do "$ENV{LORIS_CONFIG}/.loris_mri/$profile" }
 }
-my $logfile  = "$LogDir/$templog.log";
-print "\nlog dir is $LogDir and log file is $logfile \n" if $verbose;
-open LOG, ">>", $logfile or die "Error Opening $logfile";
-LOG->autoflush(1);
-&logHeader();
+if ($profile && !@Settings::db) {
+    print "\n\tERROR: You don't have a configuration file named '$profile' ".
+          "in:  $ENV{LORIS_CONFIG}/.loris_mri/ \n\n";
+    exit 33;
+}
+
+if (!$profile) {
+    print $Usage;
+    print "\n\tERROR: You must specify an existing profile.\n\n";
+    exit 33;
+}
+
+################################################################
+# Where the pics should go #####################################
+################################################################
+my $pic_dir = $Settings::data_dir . '/pic';
 
 ################################################################
 ############### Establish database connection ##################
 ################################################################
 my $dbh = &NeuroDB::DBI::connect_to_db(@Settings::db);
-print LOG "\n==> Successfully connected to database \n" if $verbose;
 
 
 ################################################################
@@ -74,7 +75,7 @@ if(defined($fileData->{'FileID'}) && $fileData->{'FileID'} > 0) {
 # build the insert query
 my $query = "INSERT INTO files SET ";
 
-foreach my $key ('File', 'SessionID','EchoTime', 'CoordinateSpace', 'OutputType', 'AcquisitionProtocolID', 'FileType', 'InsertedByUserID', 'Caveat', 'SeriesUID', 'TarchiveSource','SourcePipeline','PipelineDate','SourceFileID', 'ScannerID') {
+foreach my $key ('File', 'FileType', 'InsertedByUserID') {
     # add the key=value pair to the query
     $query .= "$key=".$dbh->quote($${fileData{$key}}).", ";
 }
@@ -83,6 +84,8 @@ $query .= "InsertTime=UNIX_TIMESTAMP()";
 
 # run the query
 $dbh->do($query);
-my $fileID = $dbh->{'mysql_insertid'};
 
-exit;
+#my $fileID = $dbh->{'mysql_insertid'};
+#$file->setFileData('FileID', $fileID);
+
+exit 0;
