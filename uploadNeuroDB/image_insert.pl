@@ -28,8 +28,11 @@ my $verbose    = 0;
 my $file_name;
 my $file_extension;
 my $ext;
+my $sth;
 my $InsertedByUserID = undef;
 my $sessionID = undef;
+my $patient_name = undef;
+my $session_id = undef;
 
 ################################################################
 #### These settings are in a config file (profile) #############
@@ -59,13 +62,14 @@ if (!$profile) {
     exit 33;
 }
 
-if(scalar(@ARGV) != 1) {
-    print "\nError: Missing source file\n\n";
+if(scalar(@ARGV) != 2) {
+    print "\nError: Missing source file or PatientName\n\n";
     exit 1;
 }
 
 # We get the name of the file in the path provided 
 $file_name = basename(abs_path($ARGV[0]));
+$patient_name = $ARGV[1];
 
 # We get the extension of the file
 ($file_extension) = $file_name =~ /((\.[^.\s]+)+)$/;
@@ -85,10 +89,10 @@ my $dbh = &NeuroDB::DBI::connect_to_db(@Settings::db);
 ############## We find the SessionID ###########################
 ################################################################
 
-# TODO
-#my $sth = $${dbhr}->prepare("SELECT CandID, Visit_label FROM session WHERE ID=".$file->getFileDatum('SessionID'));
-#   $sth->execute();
-#    my $rowhr = $sth->fetchrow_hashref();
+$sth = $dbh->prepare("SELECT SessionID FROM tarchive WHERE PatientName=?");
+my @params = ($patient_name);
+$sth->execute(@params); 
+$session_id = $sth->fetchrow_array();
 
 ################################################################
 ############### Create Insert Query ############################
@@ -107,12 +111,12 @@ my $dbh = &NeuroDB::DBI::connect_to_db(@Settings::db);
 # build the insert query
 my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime) VALUES (?,?,?,?,?)"); 
      
-my @results = ($file_name,"",$ext,$InsertedByUserID,time);
+my @results = ($file_name,$session_id,$ext,$InsertedByUserID,time);
 
 $query->execute(@results);
 
 # for debugging
-print "$query\n\n";
+#print "$query->execute(@results)\n\n";
 
 
 exit;
