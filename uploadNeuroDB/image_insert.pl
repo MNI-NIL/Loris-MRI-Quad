@@ -25,9 +25,9 @@ use NeuroDB::MRIProcessingUtility;
 
 my $profile = undef;
 my $verbose    = 0;
-my $file_name;
+my $file;
 my $file_extension;
-my $ext;
+my $type;
 my $sth;
 my $InsertedByUserID = undef;
 my $sessionID = undef;
@@ -63,17 +63,24 @@ if (!$profile) {
 }
 
 if(scalar(@ARGV) != 2) {
-    print "\nError: Missing source file or PatientName\n\n";
+    print "\nError: Missing source file or Patient Name\n\n";
     exit 1;
 }
 
+
+################################################################
+############ Populate main parameters ##########################
+###############################################################
+
 # We get the name of the file in the path provided 
-$file_name = basename(abs_path($ARGV[0]));
+$file = basename(abs_path($ARGV[0]));
 $patient_name = $ARGV[1];
 
+# TODO: refactor this. 
 # We get the extension of the file
-($file_extension) = $file_name =~ /((\.[^.\s]+)+)$/;
-$ext = substr $file_extension, 1;
+($file_extension) = $file =~ /(\.[^.]+)$/;
+
+$type = substr $file_extension, 1;
 
 # We get the user that is performing the upload
 $InsertedByUserID = `whoami`;
@@ -98,25 +105,13 @@ $session_id = $sth->fetchrow_array();
 ############### Create Insert Query ############################
 ################################################################
 
-# TODO
-# retrieve the file's data
-#my $fileData = $file->getFileData();
+# We build the insert query
+my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime, SourceFileID) VALUES (?,?,?,?,?,?)"); 
 
-# TODO
-# make sure this file isn't registered
-#if(defined($fileData->{'FileID'}) && $fileData->{'FileID'} > 0) {
-#   return 0;
-#}
+# Query parameters     
+my @results = ($file,$session_id,$type,$InsertedByUserID,time,undef);
 
-# build the insert query
-my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime) VALUES (?,?,?,?,?)"); 
-     
-my @results = ($file_name,$session_id,$ext,$InsertedByUserID,time);
-
+# Run query
 $query->execute(@results);
-
-# for debugging
-#print "$query->execute(@results)\n\n";
-
 
 exit;
