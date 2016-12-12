@@ -23,6 +23,7 @@ use NeuroDB::DBI;
 use NeuroDB::Notify;
 use NeuroDB::MRIProcessingUtility;
 
+my $debug       = 0; 
 my $profile = undef;
 my $verbose    = 0;
 my $file;
@@ -33,6 +34,8 @@ my $InsertedByUserID = undef;
 my $sessionID = undef;
 my $patient_name = undef;
 my $session_id = undef;
+my $TarchiveSource = undef;
+
 
 ################################################################
 #### These settings are in a config file (profile) #############
@@ -104,14 +107,30 @@ $session_id = $sth->fetchrow_array();
 ################################################################
 ############### Create Insert Query ############################
 ################################################################
+print "\nInserting into Files table\n" if $verbose;
+
+#TODO: TarchiveSource value is missing. Need to get it from tarchive table 
 
 # We build the insert query
-my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime, SourceFileID) VALUES (?,?,?,?,?,?)"); 
+my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime, SourceFileID,TarchiveSource) VALUES (?,?,?,?,?,?,?)"); 
 
 # Query parameters     
 my @results = ($file,$session_id,$type,$InsertedByUserID,time,undef);
 
 # Run query
-$query->execute(@results);
+#$query->execute(@results);
+
+
+############################################################
+############# Create minc-pics #############################
+############################################################
+print "\nCreating Minc Pics\n" if $verbose;
+
+&NeuroDB::MRI::make_minc_pics(\$dbh,
+                              $TarchiveSource,
+                              $profile,
+                              0, # minFileID $row[0], maxFileID $row[1]
+                              $debug, 
+                              $verbose);
 
 exit;
