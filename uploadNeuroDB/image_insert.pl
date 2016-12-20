@@ -23,20 +23,19 @@ use NeuroDB::DBI;
 use NeuroDB::Notify;
 use NeuroDB::MRIProcessingUtility;
 
-my $debug       = 0; 
-my $profile = undef;
-my $verbose    = 0;
+my $debug = 0; 
+my $verbose = 0;
 my $file;
 my $filename;
-my $file_extension;
 my $type;
 my $sth;
+my $script;
+my $profile = undef;
 my $InsertedByUserID = undef;
 my $sessionID = undef;
-my $patient_name = undef;
+my $PatientName = undef;
 my $SessionID = undef;
 my $TarchiveSource = undef;
-my $script;
 my $FileID = undef;
 my $CandID = undef;
 my $checkPicID = undef;
@@ -74,26 +73,28 @@ if(scalar(@ARGV) != 2) {
     exit 1;
 }
 
-
 ################################################################
 ############ Populate main parameters ##########################
 ################################################################
 
-# We get the name of the file in the path provided 
-$file = $ARGV[0]; # This is the name of the file we want to insert
-$patient_name = $ARGV[1]; # This is the name of the candidate we 
-                          # want to insert the image to
+# We get the name of the file in the path provided
+# Get the file we want to insert 
+$file = $ARGV[0]; 
 
+# Get the candidate's name we want to insert the image to 
+$PatientName = $ARGV[1]; 
 
-# We get the filename, basename, and extension of the iamge file
+# Get the filename, basename, and extension of the image file to insert
 my ($basename, $parentdir, $extension) = fileparse($file, qr/\.[^.]*$/);
 $filename = $basename . $extension;
-$type = substr $extension, 1; # Remove the dot from the extension
 
-# We get the user that is performing the upload
+# Get the image type, remove the dot from the extension 
+$type = substr $extension, 1;
+
+# Get the user that is performing the upload
 $InsertedByUserID = `whoami`;
 
-# Information about the source dirctory
+# Declare path for the source directory
 my $data_dir = $Settings::data_dir;
 my $pic_dir  = $data_dir.'/pic';
 
@@ -103,6 +104,7 @@ my $pic_dir  = $data_dir.'/pic';
 ################################################################
 print "\n Connecting to database \n" if $verbose;
 
+# Database connection
 my $dbh = &NeuroDB::DBI::connect_to_db(@Settings::db);
 
 ################################################################
@@ -110,17 +112,20 @@ my $dbh = &NeuroDB::DBI::connect_to_db(@Settings::db);
 ################################################################
 print "\n Getting the SessionID \n" if $verbose;
 
+# Prepare query to retrieve the SessionID from the Candidate
 $sth = $dbh->prepare("SELECT SessionID FROM tarchive WHERE PatientName=?");
-my @params = ($patient_name);
+my @params = ($PatientName);
 $sth->execute(@params); 
 $SessionID = $sth->fetchrow_array();
+
+print "\n SessionID is " . $SessionID . "\n" if $verbose;
 
 ################################################################
 ############### Insert into files table ########################
 ################################################################
-print "\n Inserting into Files table\n" if $verbose;
+print "\n Inserting into Files table \n" if $verbose;
 
-# We build the insert query
+# Prepare query to insert file into files table 
 my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime, SourceFileID,TarchiveSource) VALUES (?,?,?,?,?,?,?)"); 
 
 # Query parameters     
@@ -130,62 +135,72 @@ my @results = ($filename,$SessionID,$type,$InsertedByUserID,time,undef,undef);
 $query->execute(@results);
 
 ################################################################
-############# Get FileID  ######################################
+###################### Get FileID ##############################
 ################################################################
 print "\n Getting FileID \n" if $verbose;
 
+# Prepare query to retrieve the FileID of the inserted image file
 $sth = $dbh->prepare("SELECT FileID from files where File=?");
 @params = ($filename);
 $sth->execute(@params);
 $FileID = $sth->fetchrow_array();
 
-print "FileID is " . $FileID . "\n"; 
+print "\n FileID is " . $FileID . "\n" if $verbose; 
 
 ###############################################################
-############# Get CandID ######################################
+###################### Get CandID #############################
 ###############################################################
 print "\n Getting CandID \n" if $verbose;
  
+# Prepare the query to retrieve the CandID information
 $sth = $dbh->prepare("SELECT CandID from session where ID=?");
 @params = ($SessionID);
 $sth->execute(@params);
 $CandID = $sth->fetchrow_array();
 
-print "CandID is " . "$CandID" . "\n";
+print "\n CandID is " . "$CandID" . "\n" if $verbose;
 
 ###############################################################
 ############# Get CheckPicID reference ########################
 ###############################################################
 print "\n Getting the CheckPicID reference number \n" if $verbose;
 
+# Prepare query to get the ParameterTypeID of the site study
 $sth = $dbh->prepare("SELECT \@checkPicID:=ParameterTypeID FROM parameter_type WHERE Name='check_pic_filename'");
 $sth->execute();
 $checkPicID = $sth->fetchrow_array();
 
-print "CheckPicID is " . "$checkPicID" . "\n";
+print "\n CheckPicID is " . "$checkPicID" . "\n" if $verbose;
 
 ###############################################################
 ############# Insert into parameter_file table ################
 ###############################################################
 print "\n Inserting into parameter_file table \n" if $verbose;
 
+# Prepare query to insert image into the parameter_file table
 $sth = $dbh->prepare("INSERT INTO parameter_file (FileID, ParameterTypeID, Value, InsertTime) VALUES (?,?,?,?)");
+
+# Create value field (name to be used in the /pic directory)
 my $value = "$CandID" . "/" . uc("$basename") . uc("_$type") . "_$FileID" . "_check.jpg"; 
+
 @params =  ($FileID,$checkPicID,$value,time); 
 $sth->execute(@params);
 
-print "Value is " . "$value" . "\n";
+print "\n Value is " . "$value" . "\n" if $verbose;
 
 ###############################################################
 ############# Populating Candidate Pic directory ##############
 ###############################################################
 print "\n Saving image in candidate's /pic directory \n" if $verbose;
 
+# We copy the file into the pic directory with the new "value" name
 my $newfilename = uc("$basename") . uc("_$type") . "_$FileID" . "_check.jpg";
 my $target = $pic_dir . "/" . $CandID . "/"; 
 $script = "cp $file $newfilename && mv $newfilename $target";
 
 system($script);
 
+print "\n Finished inserting $filename \n" if $verbose;
 
+# Done.
 exit;
