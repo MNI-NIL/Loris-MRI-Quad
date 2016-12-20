@@ -80,8 +80,9 @@ if(scalar(@ARGV) != 2) {
 ################################################################
 
 # We get the name of the file in the path provided 
-$file = $ARGV[0];
-$patient_name = $ARGV[1];
+$file = $ARGV[0]; # This is the name of the file we want to insert
+$patient_name = $ARGV[1]; # This is the name of the candidate we 
+                          # want to insert the image to
 
 
 # We get the filename, basename, and extension of the iamge file
@@ -91,6 +92,11 @@ $type = substr $extension, 1; # Remove the dot from the extension
 
 # We get the user that is performing the upload
 $InsertedByUserID = `whoami`;
+
+# Information about the source dirctory
+my $data_dir = $Settings::data_dir;
+my $pic_dir  = $data_dir.'/pic';
+
 
 ################################################################
 ############### Establish database connection ##################
@@ -118,10 +124,10 @@ print "\n Inserting into Files table\n" if $verbose;
 my $query = $dbh->prepare("INSERT INTO files (File, SessionID, FileType, InsertedByUserID, InsertTime, SourceFileID,TarchiveSource) VALUES (?,?,?,?,?,?,?)"); 
 
 # Query parameters     
-my @results = ($filename,$SessionID,$type,$InsertedByUserID,time,undef);
+my @results = ($filename,$SessionID,$type,$InsertedByUserID,time,undef,undef);
 
 # Run query
-#$query->execute(@results);
+$query->execute(@results);
 
 ################################################################
 ############# Get FileID  ######################################
@@ -133,7 +139,7 @@ $sth = $dbh->prepare("SELECT FileID from files where File=?");
 $sth->execute(@params);
 $FileID = $sth->fetchrow_array();
 
-#print "FileID is " . $FileID . "\n"; 
+print "FileID is " . $FileID . "\n"; 
 
 ###############################################################
 ############# Get CandID ######################################
@@ -145,7 +151,7 @@ $sth = $dbh->prepare("SELECT CandID from session where ID=?");
 $sth->execute(@params);
 $CandID = $sth->fetchrow_array();
 
-#print "CandID is " . "$CandID" . "\n";
+print "CandID is " . "$CandID" . "\n";
 
 ###############################################################
 ############# Get CheckPicID reference ########################
@@ -156,7 +162,7 @@ $sth = $dbh->prepare("SELECT \@checkPicID:=ParameterTypeID FROM parameter_type W
 $sth->execute();
 $checkPicID = $sth->fetchrow_array();
 
-#print "CheckPicID is " . "$checkPicID" . "\n";
+print "CheckPicID is " . "$checkPicID" . "\n";
 
 ###############################################################
 ############# Insert into parameter_file table ################
@@ -166,20 +172,18 @@ print "\n Inserting into parameter_file table \n" if $verbose;
 $sth = $dbh->prepare("INSERT INTO parameter_file (FileID, ParameterTypeID, Value, InsertTime) VALUES (?,?,?,?)");
 my $value = "$CandID" . "/" . uc("$basename") . uc("_$type") . "_$FileID" . "_check.jpg"; 
 @params =  ($FileID,$checkPicID,$value,time); 
-#$sth->execute(@params);
+$sth->execute(@params);
 
-# print "Value is " . "$value" . "\n";
+print "Value is " . "$value" . "\n";
 
 ###############################################################
-############# Calling Mass_Pic ################################
+############# Populating Candidate Pic directory ##############
 ###############################################################
-print "\n Calling mass_pic \n" if $verbose;
+print "\n Saving image in candidate's /pic directory \n" if $verbose;
 
-$script = "./mass_pic.pl -minFileID $FileID -maxFileID $FileID -profile $profile";
-
-if ($verbose) {		
-   $script .= " -verbose";		
-}
+my $newfilename = uc("$basename") . uc("_$type") . "_$FileID" . "_check.jpg";
+my $target = $pic_dir . "/" . $CandID . "/"; 
+$script = "cp $file $newfilename && mv $newfilename $target";
 
 system($script);
 
